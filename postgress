@@ -1,0 +1,55 @@
+from datetime import datetime, timedelta
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
+import psycopg2
+
+default_args = {
+    'owner': 'airflow',
+    'depends_on_past': False,
+    'start_date': datetime(2023, 1, 1),
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+}
+
+def connect_and_execute_query():
+    db_params = {
+        'host': 'your_host',
+        'database': 'your_database',
+        'user': 'your_user',
+        'password': 'your_password',
+        'port': 'your_port',
+    }
+    sql_query = 'SELECT * FROM your_table;'
+
+    try:
+        connection = psycopg2.connect(**db_params)
+        cursor = connection.cursor()
+        cursor.execute(sql_query)
+        result = cursor.fetchall()
+        print("Query result:", result)
+
+    except (Exception, psycopg2.Error) as error:
+        print("Error while connecting to PostgreSQL:", error)
+
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+            print("PostgreSQL connection is closed.")
+
+dag = DAG(
+    'postgres_dag',
+    default_args=default_args,
+    description='An Airflow DAG to connect to PostgreSQL and execute a query',
+    schedule_interval=timedelta(days=1),
+)
+
+execute_postgres_query = PythonOperator(
+    task_id='execute_postgres_query',
+    python_callable=connect_and_execute_query,
+    dag=dag,
+)
+
+execute_postgres_query
